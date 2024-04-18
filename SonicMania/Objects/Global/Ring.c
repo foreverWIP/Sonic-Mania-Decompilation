@@ -9,6 +9,27 @@
 
 ObjectRing *Ring;
 
+uint16 Ring_GetSparkleSound(void)
+{
+    uint8 rand = RSDK.Rand(0, 3);
+    switch (rand) {
+        case 0: return Ring->sfxSparkle1;
+        case 1: return Ring->sfxSparkle2;
+        case 2: return Ring->sfxSparkle3;
+        case 3: return Ring->sfxSparkle4;
+        default: return Ring->sfxSparkle1;
+    }
+}
+void Ring_PlaySparkle(void)
+{
+    RSDK_THIS(Ring);
+
+    if (!Ring->sparkleSfxCountdown && self->timer < 0xF0) {
+        Ring->sparkleSfxCountdown = 40;
+        Soundboard_PlaySfxAttenuated((Entity *)self, Ring_GetSparkleSound(), 0.45);
+    }
+}
+
 void Ring_Update(void)
 {
     RSDK_THIS(Ring);
@@ -18,7 +39,11 @@ void Ring_Update(void)
 
 void Ring_LateUpdate(void) {}
 
-void Ring_StaticUpdate(void) {}
+void Ring_StaticUpdate(void)
+{
+    if (Ring->sparkleSfxCountdown)
+        Ring->sparkleSfxCountdown -= 1;
+}
 
 void Ring_Draw(void)
 {
@@ -107,6 +132,10 @@ void Ring_StageLoad(void)
     DEBUGMODE_ADD_OBJ(Ring);
 
     Ring->sfxRing = RSDK.GetSfx("Global/Ring.wav");
+    Ring->sfxSparkle1 = RSDK.GetSfx("Global/RingSparkle1.wav");
+    Ring->sfxSparkle2 = RSDK.GetSfx("Global/RingSparkle2.wav");
+    Ring->sfxSparkle3 = RSDK.GetSfx("Global/RingSparkle3.wav");
+    Ring->sfxSparkle4 = RSDK.GetSfx("Global/RingSparkle4.wav");
 }
 
 void Ring_DebugSpawn(void)
@@ -424,6 +453,10 @@ uint8 Ring_CheckPlatformCollisions(EntityPlatform *platform)
             self->velocity.x -= platform->velocity.x;
     }
 
+    if (side) {
+        Ring_PlaySparkle();
+    }
+
     return side;
 }
 
@@ -432,6 +465,7 @@ void Ring_CheckObjectCollisions(int32 x, int32 y)
     RSDK_THIS(Ring);
 
     int32 collisionSides = 0;
+    bool32 hitSurface    = false;
     int32 xVel           = self->velocity.x;
     int32 yVel           = self->velocity.y;
 
@@ -487,21 +521,31 @@ void Ring_CheckObjectCollisions(int32 x, int32 y)
     }
 
     if (xVel <= 0) {
-        if (!(collisionSides & 8) && RSDK.ObjectTileCollision(self, Zone->collisionLayers, CMODE_RWALL, self->collisionPlane, -x, 0, true))
+        if (!(collisionSides & 8) && RSDK.ObjectTileCollision(self, Zone->collisionLayers, CMODE_RWALL, self->collisionPlane, -x, 0, true)) {
             self->velocity.x = -xVel;
+            hitSurface = true;
+        }
     }
     else if (!(collisionSides & 4) && RSDK.ObjectTileCollision(self, Zone->collisionLayers, CMODE_LWALL, self->collisionPlane, x, 0, true)) {
         self->velocity.x = -xVel;
+        hitSurface = true;
     }
 
     if (yVel <= 0) {
-        if (collisionSides & 0x10 || RSDK.ObjectTileCollision(self, Zone->collisionLayers, CMODE_ROOF, self->collisionPlane, 0, -y, true))
+        if (collisionSides & 0x10 || RSDK.ObjectTileCollision(self, Zone->collisionLayers, CMODE_ROOF, self->collisionPlane, 0, -y, true)) {
             self->velocity.y = -yVel;
+            hitSurface = true;
+        }
     }
     else if (collisionSides & 2 || RSDK.ObjectTileCollision(self, Zone->collisionLayers, CMODE_FLOOR, self->collisionPlane, 0, y, true)) {
         self->velocity.y = (yVel >> 2) - yVel;
         if (self->velocity.y > -TO_FIXED(1))
             self->velocity.y = -TO_FIXED(1);
+        hitSurface = true;
+    }
+
+    if (collisionSides || hitSurface) {
+        Ring_PlaySparkle();
     }
 }
 
@@ -595,6 +639,7 @@ void Ring_State_Lost(void)
 
     if (self->moveType != RING_MOVE_FIXED) {
         if (self->velocity.y > 0 && RSDK.ObjectTileCollision(self, Zone->collisionLayers, CMODE_FLOOR, self->collisionPlane, 0, TO_FIXED(8), true)) {
+            Ring_PlaySparkle();
             self->velocity.y = (self->velocity.y >> 2) - self->velocity.y;
             if (self->velocity.y > -TO_FIXED(1))
                 self->velocity.y = -TO_FIXED(1);

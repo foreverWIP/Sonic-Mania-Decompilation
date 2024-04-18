@@ -11,6 +11,804 @@ ObjectPlayer *Player;
 
 Hitbox Player_FallbackHitbox = { -10, -20, 10, 20 };
 
+Vector2 Player_ProcessPathGrip(Entity *collisionEntity, CollisionSensor *sensors, Hitbox collisionOuter)
+{
+    int32 xVel = 0;
+    int32 yVel = 0;
+
+    sensors[4].position.x = collisionEntity->position.x;
+    sensors[4].position.y = collisionEntity->position.y;
+    for (int32 i = 0; i < 6; ++i) {
+        sensors[i].angle    = collisionEntity->angle;
+        sensors[i].collided = false;
+    }
+
+    int32 absSpeed  = abs(collisionEntity->groundVel);
+    int32 checkDist = absSpeed >> 18;
+    absSpeed &= 0x3FFFF;
+    while (checkDist > -1) {
+        if (checkDist >= 1) {
+            xVel = RSDK.Cos256(collisionEntity->angle) << 10;
+            yVel = RSDK.Sin256(collisionEntity->angle) << 10;
+            checkDist--;
+        }
+        else {
+            xVel      = absSpeed * RSDK.Cos256(collisionEntity->angle) >> 8;
+            yVel      = absSpeed * RSDK.Sin256(collisionEntity->angle) >> 8;
+            checkDist = -1;
+        }
+
+        if (collisionEntity->groundVel < 0) {
+            xVel = -xVel;
+            yVel = -yVel;
+        }
+
+        sensors[0].collided = false;
+        sensors[1].collided = false;
+        sensors[2].collided = false;
+        sensors[4].position.x += xVel;
+        sensors[4].position.y += yVel;
+        int32 tileDistance = -1;
+
+        switch (collisionEntity->collisionMode) {
+            case CMODE_FLOOR: {
+                sensors[3].position.x += xVel;
+                sensors[3].position.y += yVel;
+
+                if (collisionEntity->groundVel > 0) {
+                    RSDK.LWallCollision(&sensors[3]);
+#if RETRO_REV0U
+                    if (sensors[3].collided)
+                        sensors[2].position.x = sensors[3].position.x - TO_FIXED(2);
+#endif
+                }
+
+                if (collisionEntity->groundVel < 0) {
+                    RSDK.RWallCollision(&sensors[3]);
+#if RETRO_REV0U
+                    if (sensors[3].collided)
+                        sensors[0].position.x = sensors[3].position.x + TO_FIXED(2);
+#endif
+                }
+
+                if (sensors[3].collided) {
+                    xVel      = 0;
+                    checkDist = -1;
+                }
+
+                for (int32 i = 0; i < 3; i++) {
+                    sensors[i].position.x += xVel;
+                    sensors[i].position.y += yVel;
+                    RSDK.FindFloorPosition(&sensors[i]);
+                }
+
+                tileDistance = -1;
+                for (int32 i = 0; i < 3; i++) {
+                    if (tileDistance > -1) {
+                        if (sensors[i].collided) {
+                            if (sensors[i].position.y < sensors[tileDistance].position.y)
+                                tileDistance = i;
+
+                            if (sensors[i].position.y == sensors[tileDistance].position.y && (sensors[i].angle < 0x08 || sensors[i].angle > 0xF8))
+                                tileDistance = i;
+                        }
+                    }
+                    else if (sensors[i].collided)
+                        tileDistance = i;
+                }
+
+                if (tileDistance <= -1) {
+                    checkDist = -1;
+                }
+                else {
+                    sensors[0].position.y = sensors[tileDistance].position.y;
+                    sensors[0].angle      = sensors[tileDistance].angle;
+
+                    sensors[1].position.y = sensors[0].position.y;
+                    sensors[1].angle      = sensors[0].angle;
+
+                    sensors[2].position.y = sensors[0].position.y;
+                    sensors[2].angle      = sensors[0].angle;
+
+                    sensors[4].position.x = sensors[1].position.x;
+                    sensors[4].position.y = sensors[0].position.y - TO_FIXED(collisionOuter.bottom);
+                }
+                break;
+            }
+
+            case CMODE_LWALL: {
+                sensors[3].position.x += xVel;
+                sensors[3].position.y += yVel;
+
+                if (collisionEntity->groundVel > 0)
+                    RSDK.RoofCollision(&sensors[3]);
+
+                if (collisionEntity->groundVel < 0)
+                    RSDK.FloorCollision(&sensors[3]);
+
+                if (sensors[3].collided) {
+                    yVel      = 0;
+                    checkDist = -1;
+                }
+
+                for (int32 i = 0; i < 3; i++) {
+                    sensors[i].position.x += xVel;
+                    sensors[i].position.y += yVel;
+                    RSDK.FindLWallPosition(&sensors[i]);
+                }
+
+                tileDistance = -1;
+                for (int32 i = 0; i < 3; i++) {
+                    if (tileDistance > -1) {
+                        if (sensors[i].position.x < sensors[tileDistance].position.x && sensors[i].collided) {
+                            tileDistance = i;
+                        }
+                    }
+                    else if (sensors[i].collided) {
+                        tileDistance = i;
+                    }
+                }
+
+                if (tileDistance <= -1) {
+                    checkDist = -1;
+                }
+                else {
+                    sensors[0].position.x = sensors[tileDistance].position.x;
+                    sensors[0].angle      = sensors[tileDistance].angle;
+
+                    sensors[1].position.x = sensors[0].position.x;
+                    sensors[1].angle      = sensors[0].angle;
+
+                    sensors[2].position.x = sensors[0].position.x;
+                    sensors[2].angle      = sensors[0].angle;
+
+                    sensors[4].position.x = sensors[1].position.x - TO_FIXED(collisionOuter.bottom);
+                    sensors[4].position.y = sensors[1].position.y;
+                }
+                break;
+            }
+
+            case CMODE_ROOF: {
+                sensors[3].position.x += xVel;
+                sensors[3].position.y += yVel;
+
+                if (collisionEntity->groundVel > 0) {
+                    RSDK.RWallCollision(&sensors[3]);
+#if RETRO_REV0U
+                    if (sensors[3].collided)
+                        sensors[2].position.x = sensors[3].position.x + TO_FIXED(2);
+#endif
+                }
+
+                if (collisionEntity->groundVel < 0) {
+                    RSDK.LWallCollision(&sensors[3]);
+#if RETRO_REV0U
+                    if (sensors[3].collided)
+                        sensors[0].position.x = sensors[3].position.x - TO_FIXED(2);
+#endif
+                }
+
+                if (sensors[3].collided) {
+                    xVel      = 0;
+                    checkDist = -1;
+                }
+
+                for (int32 i = 0; i < 3; i++) {
+                    sensors[i].position.x += xVel;
+                    sensors[i].position.y += yVel;
+                    RSDK.FindRoofPosition(&sensors[i]);
+                }
+
+                tileDistance = -1;
+                for (int32 i = 0; i < 3; i++) {
+                    if (tileDistance > -1) {
+                        if (sensors[i].position.y > sensors[tileDistance].position.y && sensors[i].collided) {
+                            tileDistance = i;
+                        }
+                    }
+                    else if (sensors[i].collided) {
+                        tileDistance = i;
+                    }
+                }
+
+                if (tileDistance <= -1) {
+                    checkDist = -1;
+                }
+                else {
+                    sensors[0].position.y = sensors[tileDistance].position.y;
+                    sensors[0].angle      = sensors[tileDistance].angle;
+
+                    sensors[1].position.y = sensors[0].position.y;
+                    sensors[1].angle      = sensors[0].angle;
+
+                    sensors[2].position.y = sensors[0].position.y;
+                    sensors[2].angle      = sensors[0].angle;
+
+                    sensors[4].position.x = sensors[1].position.x;
+                    sensors[4].position.y = sensors[0].position.y + TO_FIXED(collisionOuter.bottom) + TO_FIXED(1);
+                }
+                break;
+            }
+
+            case CMODE_RWALL: {
+                sensors[3].position.x += xVel;
+                sensors[3].position.y += yVel;
+
+                if (collisionEntity->groundVel > 0)
+                    RSDK.FloorCollision(&sensors[3]);
+
+                if (collisionEntity->groundVel < 0)
+                    RSDK.RoofCollision(&sensors[3]);
+
+                if (sensors[3].collided) {
+                    yVel      = 0;
+                    checkDist = -1;
+                }
+
+                for (int32 i = 0; i < 3; i++) {
+                    sensors[i].position.x += xVel;
+                    sensors[i].position.y += yVel;
+                    RSDK.FindRWallPosition(&sensors[i]);
+                }
+
+                tileDistance = -1;
+                for (int32 i = 0; i < 3; i++) {
+                    if (tileDistance > -1) {
+                        if (sensors[i].position.x > sensors[tileDistance].position.x && sensors[i].collided) {
+                            tileDistance = i;
+                        }
+                    }
+                    else if (sensors[i].collided) {
+                        tileDistance = i;
+                    }
+                }
+
+                if (tileDistance <= -1) {
+                    checkDist = -1;
+                }
+                else {
+                    sensors[0].position.x = sensors[tileDistance].position.x;
+                    sensors[0].angle      = sensors[tileDistance].angle;
+
+                    sensors[1].position.x = sensors[0].position.x;
+                    sensors[1].angle      = sensors[0].angle;
+
+                    sensors[2].position.x = sensors[0].position.x;
+                    sensors[2].angle      = sensors[0].angle;
+
+                    sensors[4].position.x = sensors[1].position.x + TO_FIXED(collisionOuter.bottom) + TO_FIXED(1);
+                    sensors[4].position.y = sensors[1].position.y;
+                }
+                break;
+            }
+        }
+
+        if (!sensors[3].collided)
+            RSDK.SetPathGripSensors(sensors);
+        else
+            checkDist = -2;
+    }
+
+    Vector2 ret = collisionEntity->position;
+
+    switch (collisionEntity->collisionMode) {
+        case CMODE_FLOOR: {
+            if (sensors[0].collided || sensors[1].collided || sensors[2].collided) {
+
+                if (!sensors[3].collided) {
+                    ret.x = sensors[4].position.x;
+                }
+                else {
+                    if (collisionEntity->groundVel > 0)
+                        ret.x = sensors[3].position.x - TO_FIXED(collisionOuter.right);
+
+                    if (collisionEntity->groundVel < 0)
+                        ret.x = sensors[3].position.x - TO_FIXED(collisionOuter.left) + TO_FIXED(1);
+                }
+
+                ret.y = sensors[4].position.y;
+            }
+            else {
+                if (!sensors[3].collided) {
+                    ret.x += collisionEntity->velocity.x;
+                }
+                else {
+                    if (collisionEntity->groundVel > 0)
+                        ret.x = sensors[3].position.x - TO_FIXED(collisionOuter.right);
+                    if (collisionEntity->groundVel < 0)
+                        ret.x = sensors[3].position.x - TO_FIXED(collisionOuter.left) + TO_FIXED(1);
+                }
+
+                ret.y += collisionEntity->velocity.y;
+            }
+            break;
+        }
+
+        case CMODE_LWALL: {
+            if (!sensors[3].collided) {
+                ret.x = sensors[4].position.x;
+                ret.y = sensors[4].position.y;
+            }
+            else {
+                if (collisionEntity->groundVel > 0)
+                    ret.y = sensors[3].position.y + TO_FIXED(collisionOuter.right) + TO_FIXED(1);
+
+                if (collisionEntity->groundVel < 0)
+                    ret.y = sensors[3].position.y - TO_FIXED(collisionOuter.left);
+            }
+            break;
+        }
+
+        case CMODE_ROOF: {
+            if (sensors[0].collided || sensors[1].collided || sensors[2].collided) {
+                if (!sensors[3].collided) {
+                    ret.x = sensors[4].position.x;
+                }
+                else {
+                    if (collisionEntity->groundVel > 0)
+                        ret.x = sensors[3].position.x + TO_FIXED(collisionOuter.right);
+
+                    if (collisionEntity->groundVel < 0)
+                        ret.x = sensors[3].position.x + TO_FIXED(collisionOuter.left) - TO_FIXED(1);
+                }
+            }
+            else {
+                if (collisionEntity->velocity.y < -TO_FIXED(16))
+                    collisionEntity->velocity.y = -TO_FIXED(16);
+
+                if (collisionEntity->velocity.y > TO_FIXED(16))
+                    collisionEntity->velocity.y = TO_FIXED(16);
+
+                if (!sensors[3].collided) {
+                    ret.x += collisionEntity->velocity.x;
+                }
+                else {
+                    if (collisionEntity->groundVel > 0)
+                        ret.x = sensors[3].position.x - TO_FIXED(collisionOuter.right);
+
+                    if (collisionEntity->groundVel < 0)
+                        ret.x = sensors[3].position.x - TO_FIXED(collisionOuter.left) + TO_FIXED(1);
+                }
+            }
+            ret.y = sensors[4].position.y;
+            break;
+        }
+
+        case CMODE_RWALL: {
+            if (!sensors[3].collided) {
+                ret.x = sensors[4].position.x;
+                ret.y = sensors[4].position.y;
+            }
+            else {
+                if (collisionEntity->groundVel > 0)
+                    ret.y = sensors[3].position.y - TO_FIXED(collisionOuter.right);
+
+                if (collisionEntity->groundVel < 0)
+                    ret.y = sensors[3].position.y - TO_FIXED(collisionOuter.left) + TO_FIXED(1);
+            }
+            break;
+        }
+
+        default: break;
+    }
+
+    ret.x += TO_FIXED(collisionOuter.right) / 2;
+    ret.y += TO_FIXED(collisionOuter.bottom) / 2;
+
+    return ret;
+}
+
+uint16 Player_GetCollidingTile(void) {
+  RSDK_THIS(Player);
+
+  uint16 tileID = 0xffff;
+  CollisionSensor checkSensors[5];
+  Hitbox playerHitbox = *(self->outerbox ? self->outerbox : Player_GetHitbox(self));
+
+  Vector2 tilePos = Player_ProcessPathGrip((Entity *)self, (CollisionSensor *)&checkSensors, playerHitbox);
+  tileID = RSDK.GetTile(Zone->fgLayer[0], tilePos.x >> 20, tilePos.y >> 20);
+  if (tileID == 0xffff) {
+    tileID = RSDK.GetTile(Zone->fgLayer[1], tilePos.x >> 20, tilePos.y >> 20);
+  }
+  if (tileID == 0xffff) {
+    tilePos.x = self->position.x;
+    tilePos.y = self->position.y + playerHitbox.bottom + TO_FIXED(1);
+
+    tileID = RSDK.GetTile(Zone->fgLayer[0], tilePos.x >> 20, tilePos.y >> 20);
+    if (tileID == 0xffff) {
+      tileID = RSDK.GetTile(Zone->fgLayer[1], tilePos.x >> 20, tilePos.y >> 20);
+    }
+  }
+  if (tileID == 0xffff) {
+    tileID = 0;
+  }
+  return tileID;
+}
+
+uint8 Player_GetTileMaterial(void) {
+  RSDK_THIS(Player);
+  if (self->materialObjOverride) {
+    return self->materialObjOverride;
+  }
+  uint16 tileID = Player_GetCollidingTile();
+  switch (Zone_GetZoneID()) {
+    case ZONE_GHZ: {
+      uint8 def = TERRAIN_GRASS;
+      if (
+        tileID == 1 ||
+        tileID == 10 ||
+        tileID == 11 ||
+        tileID == 31 ||
+        tileID == 68 ||
+        tileID == 84 ||
+        tileID == 87 ||
+        tileID == 88 ||
+        tileID == 89 ||
+        tileID == 92 ||
+        tileID == 94 ||
+        tileID == 95 ||
+        (tileID >= 106 && tileID <= 122) ||
+        tileID == 130 ||
+        (tileID >= 140 && tileID <= 180) ||
+        tileID == 182 ||
+        tileID == 184 ||
+        (tileID >= 320 && tileID <= 327) ||
+        (tileID >= 329 && tileID <= 387) ||
+        (tileID >= 393 && tileID <= 406)
+      ) {
+        def = TERRAIN_DIRT;
+      }
+      return def;
+    }
+    break;
+    case ZONE_CPZ: {
+      return TERRAIN_METAL;
+    }
+    case ZONE_SPZ: {
+      return TERRAIN_METAL;
+    }
+    case ZONE_FBZ: {
+      return TERRAIN_METAL;
+    }
+    case ZONE_PGZ: {
+      if (Zone->actID == 0)
+        return TERRAIN_STONE;
+      else
+        return TERRAIN_GRASS;
+    }
+    case ZONE_SSZ: {
+      if (Zone->actID == 0)
+        return TERRAIN_STONE;
+      else
+        return TERRAIN_GRASS;
+    }
+    case ZONE_HCZ: {
+      return TERRAIN_STONE;
+    }
+    case ZONE_MSZ: {
+      if (Zone->actID == 0)
+        return TERRAIN_METAL;
+      else
+        return TERRAIN_DIRT;
+    }
+    case ZONE_OOZ: {
+      return TERRAIN_DIRT;
+    }
+    case ZONE_LRZ: {
+      return TERRAIN_STONE;
+    }
+    case ZONE_MMZ: {
+      return TERRAIN_METAL;
+    }
+    case ZONE_TMZ: {
+      return TERRAIN_METAL;
+    }
+    case ZONE_ERZ: {
+      return TERRAIN_GLASS;
+    }
+    default: return TERRAIN_NONE;
+  }
+}
+
+uint16 Player_GetFootstepSound(void) {
+  uint8 material = Player_GetTileMaterial();
+  uint8 rand = RSDK.Rand(0, 4);
+  uint16 fallbackSound = Soundboard->sfxError;
+  switch (material) {
+  case TERRAIN_STONE:
+    switch (rand) {
+    case 0:
+      return Player->sfxStepStone1;
+      break;
+    case 1:
+      return Player->sfxStepStone2;
+      break;
+    case 2:
+      return Player->sfxStepStone3;
+      break;
+    case 3:
+      return Player->sfxStepStone4;
+      break;
+    case 4:
+      return Player->sfxStepStone5;
+      break;
+    default:
+      return fallbackSound;
+      break;
+    }
+    break;
+  case TERRAIN_DIRT:
+    switch (rand) {
+    case 0:
+      return Player->sfxStepDirt1;
+      break;
+    case 1:
+      return Player->sfxStepDirt2;
+      break;
+    case 2:
+      return Player->sfxStepDirt3;
+      break;
+    case 3:
+      return Player->sfxStepDirt4;
+      break;
+    case 4:
+      return Player->sfxStepDirt5;
+      break;
+    default:
+      return fallbackSound;
+      break;
+    }
+    break;
+  case TERRAIN_GRASS:
+    switch (rand) {
+    case 0:
+      return Player->sfxStepGrass1;
+      break;
+    case 1:
+      return Player->sfxStepGrass2;
+      break;
+    case 2:
+      return Player->sfxStepGrass3;
+      break;
+    case 3:
+      return Player->sfxStepGrass4;
+      break;
+    case 4:
+      return Player->sfxStepGrass5;
+      break;
+    default:
+      return fallbackSound;
+      break;
+    }
+    break;
+  case TERRAIN_METAL:
+    switch (rand) {
+    case 0:
+      return Player->sfxStepMetal1;
+      break;
+    case 1:
+      return Player->sfxStepMetal2;
+      break;
+    case 2:
+      return Player->sfxStepMetal3;
+      break;
+    case 3:
+      return Player->sfxStepMetal4;
+      break;
+    case 4:
+      return Player->sfxStepMetal5;
+      break;
+    default:
+      return fallbackSound;
+      break;
+    }
+    break;
+  case TERRAIN_GLASS:
+    switch (RSDK.Rand(0, 2)) {
+    case 0:
+      return Player->sfxStepGlass1;
+      break;
+    case 1:
+      return Player->sfxStepGlass2;
+      break;
+    case 2:
+      return Player->sfxStepGlass3;
+      break;
+    default:
+      return fallbackSound;
+      break;
+    }
+    break;
+  case TERRAIN_WOOD:
+    switch (rand) {
+    case 0:
+      return Player->sfxStepWood1;
+      break;
+    case 1:
+      return Player->sfxStepWood2;
+      break;
+    case 2:
+      return Player->sfxStepWood3;
+      break;
+    case 3:
+      return Player->sfxStepWood4;
+      break;
+    case 4:
+      return Player->sfxStepWood5;
+      break;
+    default:
+      return fallbackSound;
+      break;
+    }
+    break;
+  default:
+    return fallbackSound;
+  }
+  return fallbackSound;
+}
+
+void Player_Maybe_Play_Footstep(void) {
+  RSDK_THIS(Player);
+
+  bool32 shouldPlaySfx = false;
+  uint16 frameID = self->animator.frameID;
+  switch (self->characterID) {
+  case ID_SONIC: {
+    switch (self->animator.animationID) {
+    case ANI_WALK: {
+      shouldPlaySfx = frameID == 5 || frameID == 11;
+      break;
+    }
+    case ANI_JOG: {
+      shouldPlaySfx = frameID == 1 || frameID == 6;
+      break;
+    }
+    case ANI_RUN: {
+      shouldPlaySfx = frameID == 3 || frameID == 7;
+      break;
+    }
+    case ANI_DASH: {
+      shouldPlaySfx = frameID == 3;
+      break;
+    }
+    case ANI_PUSH: {
+      shouldPlaySfx = frameID == 4 || frameID == 9;
+      break;
+    }
+    case ANI_SPRING_CS: {
+      shouldPlaySfx = frameID == 3 || frameID == 7 || frameID == 13 ||
+                      frameID == 17 || frameID == 20 || frameID == 23;
+      break;
+    }
+    case ANI_VICTORY: {
+      shouldPlaySfx = frameID == 12;
+      break;
+    }
+    case ANI_SPIRAL_RUN: {
+      shouldPlaySfx = frameID == 2 || frameID == 4 || frameID == 6 ||
+                      frameID == 8 || frameID == 10 || frameID == 12 ||
+                      frameID == 13 || frameID == 16 || frameID == 18 ||
+                      frameID == 20 || frameID == 23;
+      break;
+    }
+    case ANI_TWIST_RUN: {
+      shouldPlaySfx = frameID == 3 || frameID == 5 || frameID == 7 ||
+                      frameID == 9 || frameID == 11;
+      break;
+    }
+    default:
+      break;
+    }
+    break;
+  }
+  case ID_TAILS: {
+    switch (self->animator.animationID) {
+    case ANI_WALK: {
+      shouldPlaySfx = frameID == 5 || frameID == 11;
+      break;
+    }
+    case ANI_JOG: {
+      shouldPlaySfx = frameID == 1 || frameID == 6;
+      break;
+    }
+    case ANI_PUSH: {
+      shouldPlaySfx = frameID == 4 || frameID == 9;
+      break;
+    }
+    case ANI_VICTORY: {
+      shouldPlaySfx = frameID == 5 || frameID == 15;
+      break;
+    }
+    default:
+      break;
+    }
+    break;
+  }
+  case ID_KNUCKLES: {
+    switch (self->animator.animationID) {
+    case ANI_WALK: {
+      shouldPlaySfx = frameID == 5 || frameID == 11;
+      break;
+    }
+    case ANI_JOG: {
+      shouldPlaySfx = frameID == 1 || frameID == 6;
+      break;
+    }
+    case ANI_RUN: {
+      shouldPlaySfx = frameID == 3 || frameID == 7;
+      break;
+    }
+    case ANI_DASH: {
+      shouldPlaySfx = frameID == 3;
+      break;
+    }
+    case ANI_PUSH: {
+      shouldPlaySfx = frameID == 4 || frameID == 9;
+      break;
+    }
+    case ANI_SPRING_CS: {
+      shouldPlaySfx = frameID == 3 || frameID == 7 || frameID == 13 ||
+                      frameID == 17 || frameID == 20 || frameID == 23;
+      break;
+    }
+    case ANI_VICTORY: {
+      shouldPlaySfx = frameID == 7 || frameID == 8;
+      break;
+    }
+    case ANI_SPIRAL_RUN: {
+      shouldPlaySfx = frameID == 2 || frameID == 4 || frameID == 6 ||
+                      frameID == 8 || frameID == 10 || frameID == 12 ||
+                      frameID == 13 || frameID == 16 || frameID == 18 ||
+                      frameID == 20 || frameID == 23;
+      break;
+    }
+    case ANI_TWIST_RUN: {
+      shouldPlaySfx = frameID == 2 || frameID == 4 || frameID == 6 ||
+                      frameID == 9 || frameID == 11;
+      break;
+    }
+    default:
+      break;
+    }
+    break;
+  }
+  default:
+    break;
+  }
+
+  if (shouldPlaySfx) {
+    if (!self->footstepSoundTimer) {
+      self->footstepSoundTimer = 4;
+      int32 MAX_ATTEN = self->minDashVelocity * 2;
+      float vol = (MAX_ATTEN -
+                   (self->groundVel < 0 ? -self->groundVel : self->groundVel)) /
+                  (float)MAX_ATTEN;
+      if (self->sidekick) {
+        vol *= 0.75;
+      }
+      Soundboard_PlaySfxAttenuated((Entity *)self, Player_GetFootstepSound(),
+                                   vol);
+    }
+  }
+}
+
+void Player_PlayLandSound(void) {
+  RSDK_THIS(Player);
+
+  uint8 material = Player_GetTileMaterial();
+  uint16 sfx = Player->sfxLandStone;
+  switch (material) {
+    case TERRAIN_STONE: sfx = Player->sfxLandStone; break;
+    case TERRAIN_DIRT: sfx = Player->sfxLandDirt; break;
+    case TERRAIN_GRASS: sfx = Player->sfxLandGrass; break;
+    case TERRAIN_METAL: sfx = Player->sfxLandMetal; break;
+    case TERRAIN_WOOD: sfx = Player->sfxLandWood; break;
+    default: sfx = Soundboard->sfxError; break;
+  }
+
+  Soundboard_PlaySfxAttenuated((Entity *)self, sfx, 0.5);
+}
+
 void Player_Update(void)
 {
     RSDK_THIS(Player);
@@ -294,6 +1092,9 @@ void Player_LateUpdate(void)
 
     if (self->onGround) {
         if (self->nextGroundState) {
+            if (self->nextGroundState == Player_State_Ground) {
+                Player_PlayLandSound();
+            }
             self->state           = self->nextGroundState;
             self->nextGroundState = StateMachine_None;
             if (self->sidekick)
@@ -372,6 +1173,16 @@ void Player_LateUpdate(void)
     }
 
     RSDK.ProcessAnimation(&self->animator);
+
+  if (self->onGround) {
+    Player_Maybe_Play_Footstep();
+  } else {
+    self->materialObjOverride = 0;
+  }
+
+  if (self->footstepSoundTimer) {
+    self->footstepSoundTimer -= 1;
+  }
 }
 
 void Player_StaticUpdate(void)
@@ -770,6 +1581,46 @@ void Player_StageLoad(void)
     Soundboard_LoadSfx("Global/RaySwoop.wav", 41417, Player_SfxCheck_RaySwoop, Player_SfxUpdate_RaySwoop);
     Soundboard_LoadSfx("Global/RayDive.wav", 72323, Player_SfxCheck_RayDive, Player_SfxUpdate_RayDive);
 #endif
+
+  Player->sfxLandStone = RSDK.GetSfx("Stage/Footstep/LandStone.wav");
+  Player->sfxStepStone1 = RSDK.GetSfx("Stage/Footstep/StepStone1.wav");
+  Player->sfxStepStone2 = RSDK.GetSfx("Stage/Footstep/StepStone2.wav");
+  Player->sfxStepStone3 = RSDK.GetSfx("Stage/Footstep/StepStone3.wav");
+  Player->sfxStepStone4 = RSDK.GetSfx("Stage/Footstep/StepStone4.wav");
+  Player->sfxStepStone5 = RSDK.GetSfx("Stage/Footstep/StepStone5.wav");
+
+  Player->sfxLandDirt = RSDK.GetSfx("Stage/Footstep/LandDirt.wav");
+  Player->sfxStepDirt1 = RSDK.GetSfx("Stage/Footstep/StepDirt1.wav");
+  Player->sfxStepDirt2 = RSDK.GetSfx("Stage/Footstep/StepDirt2.wav");
+  Player->sfxStepDirt3 = RSDK.GetSfx("Stage/Footstep/StepDirt3.wav");
+  Player->sfxStepDirt4 = RSDK.GetSfx("Stage/Footstep/StepDirt4.wav");
+  Player->sfxStepDirt5 = RSDK.GetSfx("Stage/Footstep/StepDirt5.wav");
+
+  Player->sfxLandGrass = RSDK.GetSfx("Stage/Footstep/LandGrass.wav");
+  Player->sfxStepGrass1 = RSDK.GetSfx("Stage/Footstep/StepGrass1.wav");
+  Player->sfxStepGrass2 = RSDK.GetSfx("Stage/Footstep/StepGrass2.wav");
+  Player->sfxStepGrass3 = RSDK.GetSfx("Stage/Footstep/StepGrass3.wav");
+  Player->sfxStepGrass4 = RSDK.GetSfx("Stage/Footstep/StepGrass4.wav");
+  Player->sfxStepGrass5 = RSDK.GetSfx("Stage/Footstep/StepGrass5.wav");
+
+  Player->sfxLandMetal = RSDK.GetSfx("Stage/Footstep/LandMetal.wav");
+  Player->sfxStepMetal1 = RSDK.GetSfx("Stage/Footstep/StepMetal1.wav");
+  Player->sfxStepMetal2 = RSDK.GetSfx("Stage/Footstep/StepMetal2.wav");
+  Player->sfxStepMetal3 = RSDK.GetSfx("Stage/Footstep/StepMetal3.wav");
+  Player->sfxStepMetal4 = RSDK.GetSfx("Stage/Footstep/StepMetal4.wav");
+  Player->sfxStepMetal5 = RSDK.GetSfx("Stage/Footstep/StepMetal5.wav");
+
+  Player->sfxLandGlass = RSDK.GetSfx("Stage/Footstep/LandGlass.wav");
+  Player->sfxStepGlass1 = RSDK.GetSfx("Stage/Footstep/StepGlass1.wav");
+  Player->sfxStepGlass2 = RSDK.GetSfx("Stage/Footstep/StepGlass2.wav");
+  Player->sfxStepGlass3 = RSDK.GetSfx("Stage/Footstep/StepGlass3.wav");
+
+  Player->sfxLandWood = RSDK.GetSfx("Stage/Footstep/LandWood.wav");
+  Player->sfxStepWood1 = RSDK.GetSfx("Stage/Footstep/StepWood1.wav");
+  Player->sfxStepWood2 = RSDK.GetSfx("Stage/Footstep/StepWood2.wav");
+  Player->sfxStepWood3 = RSDK.GetSfx("Stage/Footstep/StepWood3.wav");
+  Player->sfxStepWood4 = RSDK.GetSfx("Stage/Footstep/StepWood4.wav");
+  Player->sfxStepWood5 = RSDK.GetSfx("Stage/Footstep/StepWood5.wav");
 
     // Handle gotHit values (used for TMZ1 achievement)
     for (int32 p = 0; p < PLAYER_COUNT; ++p) Player->gotHit[p] = false;

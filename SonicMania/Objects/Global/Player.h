@@ -16,6 +16,19 @@
 
 #define PLAYER_PRIMARY_COLOR_COUNT (6)
 
+typedef enum {
+  TERRAIN_NONE = 0,
+  TERRAIN_STONE = 1,
+  TERRAIN_METAL = 2,
+  TERRAIN_DIRT = 3,
+  TERRAIN_WOOD = 4,
+  TERRAIN_GRASS = 5,
+  TERRAIN_WATER = 6,
+  TERRAIN_DEEPWATER = 7,
+  TERRAIN_OIL = 8,
+  TERRAIN_GLASS = 9,
+} TerrainTypes;
+
 // Helper Enums
 typedef enum {
     ANI_IDLE,
@@ -267,6 +280,47 @@ struct ObjectPlayer {
     uint16 sfxMightyDrill;
     uint16 sfxMightyLand;
     uint16 sfxMightyUnspin;
+
+    uint16 sfxLandStone;
+    uint16 sfxStepStone1;
+    uint16 sfxStepStone2;
+    uint16 sfxStepStone3;
+    uint16 sfxStepStone4;
+    uint16 sfxStepStone5;
+
+    uint16 sfxLandDirt;
+    uint16 sfxStepDirt1;
+    uint16 sfxStepDirt2;
+    uint16 sfxStepDirt3;
+    uint16 sfxStepDirt4;
+    uint16 sfxStepDirt5;
+
+    uint16 sfxLandGrass;
+    uint16 sfxStepGrass1;
+    uint16 sfxStepGrass2;
+    uint16 sfxStepGrass3;
+    uint16 sfxStepGrass4;
+    uint16 sfxStepGrass5;
+
+    uint16 sfxLandMetal;
+    uint16 sfxStepMetal1;
+    uint16 sfxStepMetal2;
+    uint16 sfxStepMetal3;
+    uint16 sfxStepMetal4;
+    uint16 sfxStepMetal5;
+
+    uint16 sfxLandGlass;
+    uint16 sfxStepGlass1;
+    uint16 sfxStepGlass2;
+    uint16 sfxStepGlass3;
+
+    uint16 sfxLandWood;
+    uint16 sfxStepWood1;
+    uint16 sfxStepWood2;
+    uint16 sfxStepWood3;
+    uint16 sfxStepWood4;
+    uint16 sfxStepWood5;
+
     int32 raySwoopTimer;
     int32 rayDiveTimer;
     bool32 gotHit[PLAYER_COUNT];
@@ -374,7 +428,8 @@ struct EntityPlayer {
     int32 minJogVelocity;
     int32 minRunVelocity;
     int32 minDashVelocity;
-    int32 unused; // the only used variable in the player struct, I cant find a ref to it anywhere so...
+    int32 footstepSoundTimer;
+    uint8 materialObjOverride;
     int32 tailRotation;
     int32 tailDirection;
     uint16 aniFrames;

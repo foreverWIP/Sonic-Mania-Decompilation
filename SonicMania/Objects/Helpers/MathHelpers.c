@@ -21,6 +21,13 @@ void MathHelpers_Create(void *data) {}
 
 void MathHelpers_StageLoad(void) {}
 
+float MathHelpers_LerpFloat(float v0, float v1, float t)
+{
+    t = max(0.0, t);
+    t = min(1.0, t);
+    return (1.0 - t) * v0 + t * v1;
+}
+
 void MathHelpers_LerpToPos(Vector2 *pos, int32 percent, int32 posX, int32 posY)
 {
     if (percent < 0) {

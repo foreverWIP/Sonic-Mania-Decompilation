@@ -9,6 +9,17 @@
 
 ObjectPlatform *Platform;
 
+uint8 Platform_GetMaterial(void)
+{
+    RSDK_THIS(Platform);
+    switch (Zone_GetZoneID()) {
+        case ZONE_GHZ:
+            if (self->frameID == 2)
+                return TERRAIN_STONE;
+    }
+    return TERRAIN_NONE;
+}
+
 void Platform_Update(void)
 {
     RSDK_THIS(Platform);
@@ -1366,6 +1377,9 @@ void Platform_Collision_Solid(void)
 
         switch (Player_CheckCollisionBox(player, self, solidHitbox)) {
             case C_TOP:
+                if (!(self->stoodPlayers & (1 << playerID))) {
+                    player->materialObjOverride = Platform_GetMaterial();
+                }
                 Platform_HandleStood(self, player, playerID, stoodPlayers);
 
                 if (self->velocity.y <= 0)
@@ -1444,6 +1458,9 @@ void Platform_Collision_Solid_Hurt_Bottom(void)
 
         switch (Player_CheckCollisionBox(player, self, solidHitbox)) {
             case C_TOP:
+                if (!(self->stoodPlayers & (1 << playerID))) {
+                    player->materialObjOverride = Platform_GetMaterial();
+                }
                 Platform_HandleStood(self, player, playerID, 0xFF);
 
                 if (self->velocity.y <= 0)
@@ -1507,6 +1524,9 @@ void Platform_Collision_Solid_Hurt_Sides(void)
 
         switch (Player_CheckCollisionBox(player, self, solidHitbox)) {
             case C_TOP:
+                if (!(self->stoodPlayers & (1 << playerID))) {
+                    player->materialObjOverride = Platform_GetMaterial();
+                }
                 Platform_HandleStood(self, player, playerID, 0xFF);
 
                 if (self->velocity.y <= 0)
@@ -1668,6 +1688,9 @@ void Platform_Collision_Sticky(void)
         Player_CheckCollisionPlatform(player, self, platformHitbox);
 
         int32 side = Player_CheckCollisionBox(player, self, solidHitbox);
+        if (side == C_TOP && !(self->stoodPlayers & (1 << playerID))) {
+            player->materialObjOverride = Platform_GetMaterial();
+        }
 
         Platform_HandleStood_Sticky(self, player, playerID, side);
     }
@@ -1686,7 +1709,11 @@ void Platform_Collision_Solid_Hurt_Top(void)
         uint16 playerID = RSDK.GetEntitySlot(player);
 
         switch (Player_CheckCollisionBox(player, self, solidHitbox)) {
-            case C_TOP: Platform_HandleStood(self, player, playerID, 0xFF);
+            case C_TOP:
+                if (!(self->stoodPlayers & (1 << playerID))) {
+                    player->materialObjOverride = Platform_GetMaterial();
+                }
+                Platform_HandleStood(self, player, playerID, 0xFF);
 
 #if MANIA_USE_PLUS
                 if (!Player_CheckMightyUnspin(player, 0x400, 0, &player->uncurlTimer))
@@ -1775,7 +1802,11 @@ void Platform_Collision_Solid_Barrel(void)
         Player_CheckCollisionPlatform(player, self, platformHitbox);
 
         switch (Player_CheckCollisionBox(player, self, solidHitbox)) {
-            case C_TOP: self->stood = true;
+            case C_TOP:
+                if (!(self->stoodPlayers & (1 << playerID))) {
+                    player->materialObjOverride = Platform_GetMaterial();
+                }
+                self->stood = true;
 #if MANIA_USE_PLUS
                 if (player->characterID != ID_MIGHTY || player->state != Player_State_MightyHammerDrop) {
 #endif
@@ -1855,6 +1886,9 @@ void Platform_Collision_Solid_Hold(void)
                 break;
 
             case C_TOP:
+                if (!(self->stoodPlayers & (1 << playerID))) {
+                    player->materialObjOverride = Platform_GetMaterial();
+                }
 #if MANIA_USE_PLUS
                 if (player->characterID != ID_MIGHTY || player->state != Player_State_MightyHammerDrop) {
 #endif
@@ -1932,7 +1966,11 @@ void Platform_Collision_Solid_NoCrush(void)
             default:
             case C_NONE: break;
 
-            case C_TOP: Platform_HandleStood(self, player, playerID, stoodPlayers); break;
+            case C_TOP:
+                if (!(self->stoodPlayers & (1 << playerID))) {
+                    player->materialObjOverride = Platform_GetMaterial();
+                }
+                Platform_HandleStood(self, player, playerID, stoodPlayers); break;
 
             case C_LEFT:
                 if (player->onGround && player->right)

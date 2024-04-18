@@ -26,6 +26,11 @@ struct ObjectRing {
     int32 pan;
     uint16 aniFrames;
     uint16 sfxRing;
+    uint16 sfxSparkle1;
+    uint16 sfxSparkle2;
+    uint16 sfxSparkle3;
+    uint16 sfxSparkle4;
+    uint8 sparkleSfxCountdown;
 };
 
 // Entity Class

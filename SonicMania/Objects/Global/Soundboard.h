@@ -18,6 +18,7 @@ struct ObjectSoundboard {
     int32 sfxPlayingTimer[SOUNDBOARD_SFX_COUNT];
     int32 sfxFadeOutTimer[SOUNDBOARD_SFX_COUNT];
     int32 sfxFadeOutDuration[SOUNDBOARD_SFX_COUNT];
+    uint16 sfxError;
 };
 
 // Entity Class
@@ -42,6 +43,7 @@ void Soundboard_EditorLoad(void);
 void Soundboard_Serialize(void);
 
 // Extra Entity Functions
+void Soundboard_PlaySfxAttenuated(Entity *entity, uint16 sfx, float volumeScale);
 uint8 Soundboard_LoadSfx(const char *sfxName, uint32 loopPoint, bool32 (*checkCallback)(void), void (*updateCallback)(int32 sfxID));
 
 #endif //! OBJ_SOUNDBOARD_H

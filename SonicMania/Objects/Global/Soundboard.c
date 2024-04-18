@@ -81,6 +81,19 @@ void Soundboard_StageLoad(void)
         Soundboard->sfxPlayingTimer[i]    = 0;
         Soundboard->sfxFadeOutDuration[i] = 0;
     }
+
+    Soundboard->sfxError = RSDK.GetSfx("Global/ScoreAdd.wav");
+}
+
+void Soundboard_PlaySfxAttenuated(Entity *entity, uint16 sfx, float volumeScale)
+{
+    uint8 channel = RSDK.PlaySfx(sfx, false, 255);
+    float pan = (FROM_FIXED(entity->position.x) - (ScreenInfo->position.x + ScreenInfo->center.x)) / (float)ScreenInfo->center.x;
+    float vol = MathHelpers_LerpFloat(0.5, 1.0, 1 - ((pan < 0) ? -pan : pan));
+    vol = min(vol, 1.0);
+    pan = min(pan, 1.0);
+    pan = max(pan, -1.0);
+    RSDK.SetChannelAttributes(channel, vol * max(volumeScale, 0.0), pan, 1.0);
 }
 
 uint8 Soundboard_LoadSfx(const char *sfxName, uint32 loopPoint, bool32 (*checkCallback)(void), void (*updateCallback)(int32))

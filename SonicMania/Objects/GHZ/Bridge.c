@@ -36,7 +36,9 @@ void Bridge_Update(void)
         if (player->state == Player_State_KnuxLedgePullUp)
             continue;
 
-        Bridge_HandleCollisions(player, self, playerHitbox, true, true);
+        if (!Bridge_HandleCollisions(player, self, playerHitbox, true, true)) {
+            player->materialObjOverride = TERRAIN_NONE;
+        }
     }
 
     if (self->burnOffset != 0xFF)
@@ -193,6 +195,8 @@ bool32 Bridge_HandleCollisions(void *e, EntityBridge *self, Hitbox *entityHitbox
                     if (updateVars) {
                         ++self->stoodEntityCount;
                         if (!entity->onGround) {
+                            if (isPlayer)
+                                entity->materialObjOverride = TERRAIN_WOOD;
                             entity->onGround  = true;
                             entity->groundVel = entity->velocity.x;
                         }
@@ -224,6 +228,8 @@ bool32 Bridge_HandleCollisions(void *e, EntityBridge *self, Hitbox *entityHitbox
                         }
 
                         if (!entity->onGround) {
+                            if (isPlayer)
+                                entity->materialObjOverride = TERRAIN_WOOD;
                             entity->onGround  = true;
                             entity->groundVel = entity->velocity.x;
                         }
@@ -251,6 +257,8 @@ bool32 Bridge_HandleCollisions(void *e, EntityBridge *self, Hitbox *entityHitbox
                     entity->position.y = self->position.y + self->bridgeDepth - ((entityHitbox->bottom + 8) << 16);
 
                     if (!entity->onGround) {
+                        if (isPlayer)
+                            entity->materialObjOverride = TERRAIN_WOOD;
                         entity->onGround  = true;
                         entity->groundVel = entity->velocity.x;
                     }
