@@ -48,6 +48,9 @@ struct ObjectWater {
     uint16 sfxDNABurst;
     uint16 sfxWaterLevelL;
     uint16 sfxWaterLevelR;
+    uint16 sfxBubbleSpawn1;
+    uint16 sfxBubbleSpawn2;
+    uint16 sfxBubbleSpawn3;
     int32 waterLevelChannelL;
     int32 waterLevelChannelR;
     int32 unused2;

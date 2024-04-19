@@ -653,7 +653,7 @@ void HeavyKing_StateCutscene_GetHigherGround(void)
             break;
 
         case 90:
-            RSDK.PlaySfx(Player->sfxJump, false, 255);
+            Soundboard_PlaySfxAttenuated((Entity *)player1, Player->sfxJump, 0.3);
             RSDK.SetSpriteAnimation(player1->aniFrames, ANI_JUMP, &player1->animator, false, 0);
             player1->velocity.x   = 0x2C000;
             player1->velocity.y   = -0x50000;
@@ -663,7 +663,7 @@ void HeavyKing_StateCutscene_GetHigherGround(void)
             break;
 
         case 124:
-            RSDK.PlaySfx(Player->sfxJump, false, 255);
+            Soundboard_PlaySfxAttenuated((Entity *)player1, Player->sfxJump, 0.3);
             RSDK.SetSpriteAnimation(player1->aniFrames, ANI_JUMP, &player1->animator, false, 0);
 
             player1->velocity.x   = -0x1C000;

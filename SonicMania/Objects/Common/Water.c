@@ -281,6 +281,10 @@ void Water_StageLoad(void)
 
         RSDK.SetSpriteAnimation(Water->wakeFrames, 0, &Water->wakeAnimator, true, 0);
     }
+
+    Water->sfxBubbleSpawn1 = RSDK.GetSfx("Global/BubbleSpawn1.wav");
+    Water->sfxBubbleSpawn2 = RSDK.GetSfx("Global/BubbleSpawn2.wav");
+    Water->sfxBubbleSpawn3 = RSDK.GetSfx("Global/BubbleSpawn3.wav");
 }
 
 void Water_DrawHook_ApplyWaterPalette(void)
@@ -360,6 +364,14 @@ void Water_SpawnBubble(EntityPlayer *player, int32 id)
     bubble->bubbleX    = bubble->position.x;
     bubble->velocity.y = -0x8800;
     bubble->drawGroup  = player->drawGroup + 1;
+
+    uint16 sfxID = 0xffff;
+    switch (RSDK.Rand(0, 3)) {
+        case 0: sfxID = Water->sfxBubbleSpawn1;
+        case 1: sfxID = Water->sfxBubbleSpawn2;
+        case 2: sfxID = Water->sfxBubbleSpawn3;
+    }
+    Soundboard_PlaySfxAttenuated((Entity *)bubble, sfxID, 0.1);
 }
 
 void Water_SpawnCountDownBubble(EntityPlayer *player, int32 id, uint8 bubbleID)

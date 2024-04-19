@@ -256,7 +256,7 @@ bool32 SPZ2Outro_Cutscene_AsSeenOnTV(EntityCutsceneSeq *host)
 
             if (player->position.x >= weatherTV->position.x && !player->velocity.y && player->animator.animationID == ANI_RUN) {
                 RSDK.SetSpriteAnimation(player->aniFrames, ANI_JUMP, &player->animator, true, 0);
-                RSDK.PlaySfx(Player->sfxJump, false, 255);
+                Soundboard_PlaySfxAttenuated((Entity *)player, Player->sfxJump, 0.3);
                 player->velocity.y = -0x20000;
             }
 

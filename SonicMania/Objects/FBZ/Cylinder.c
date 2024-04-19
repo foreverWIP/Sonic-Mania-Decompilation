@@ -644,7 +644,7 @@ void Cylinder_State_Pillar(void)
                     player->onGround     = true;
 
                     if (player->jumpPress) {
-                        RSDK.PlaySfx(Player->sfxJump, false, 255);
+                        Soundboard_PlaySfxAttenuated((Entity *)player, Player->sfxJump, 0.3);
                         player->velocity.x = player->position.x < self->position.x ? -0x60000 : 0x60000;
                         RSDK.SetSpriteAnimation(player->aniFrames, ANI_JUMP, &player->animator, false, 0);
                         player->onGround = false;

@@ -130,7 +130,7 @@ void MagnetSphere_CheckPlayerCollision(void)
                 self->playerTimers[playerID] = 30;
                 self->activePlayers &= ~(1 << playerID);
 
-                RSDK.PlaySfx(Player->sfxJump, false, 255);
+                Soundboard_PlaySfxAttenuated((Entity *)player, Player->sfxJump, 0.3);
             }
         }
         else {

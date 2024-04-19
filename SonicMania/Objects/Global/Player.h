@@ -430,6 +430,8 @@ struct EntityPlayer {
     int32 minDashVelocity;
     int32 footstepSoundTimer;
     uint8 materialObjOverride;
+    uint16 closestTileID;
+    Vector2 closestTilePos;
     int32 tailRotation;
     int32 tailDirection;
     uint16 aniFrames;

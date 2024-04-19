@@ -392,8 +392,12 @@ Vector2 Player_ProcessPathGrip(Entity *collisionEntity, CollisionSensor *sensors
         default: break;
     }
 
-    ret.x += TO_FIXED(collisionOuter.right) / 2;
-    ret.y += TO_FIXED(collisionOuter.bottom) / 2;
+    switch (collisionEntity->collisionMode) {
+        case CMODE_FLOOR: ret.y += TO_FIXED(collisionOuter.bottom); break;
+        case CMODE_ROOF: ret.y += TO_FIXED(collisionOuter.top); break;
+        case CMODE_RWALL: ret.x += TO_FIXED(collisionOuter.right); break;
+        case CMODE_LWALL: ret.x += TO_FIXED(collisionOuter.left); break;
+    }
 
     return ret;
 }
@@ -419,8 +423,11 @@ uint16 Player_GetCollidingTile(void) {
       tileID = RSDK.GetTile(Zone->fgLayer[1], tilePos.x >> 20, tilePos.y >> 20);
     }
   }
-  if (tileID == 0xffff) {
-    tileID = 0;
+  if (tileID != 0xffff) {
+    self->closestTilePos = tilePos;
+  } else {
+    self->closestTilePos.x = -1;
+    self->closestTilePos.y = -1;
   }
   return tileID;
 }
@@ -430,7 +437,7 @@ uint8 Player_GetTileMaterial(void) {
   if (self->materialObjOverride) {
     return self->materialObjOverride;
   }
-  uint16 tileID = Player_GetCollidingTile();
+  uint16 tileID = self->closestTileID;
   switch (Zone_GetZoneID()) {
     case ZONE_GHZ: {
       uint8 def = TERRAIN_GRASS;
@@ -1176,6 +1183,7 @@ void Player_LateUpdate(void)
 
   if (self->onGround) {
     Player_Maybe_Play_Footstep();
+    self->closestTileID = Player_GetCollidingTile();
   } else {
     self->materialObjOverride = 0;
   }
@@ -1347,6 +1355,11 @@ void Player_Draw(void)
     if (self->state == Player_State_FlyToPlayer && parent) {
         self->position.x = posStore.x;
         self->position.y = posStore.y;
+    }
+
+    if (self->closestTilePos.x != -1 && self->closestTilePos.y != -1) {
+        RSDK.DrawRect((self->closestTilePos.x >> 20) << 20, (self->closestTilePos.y >> 20) << 20, TO_FIXED(16), TO_FIXED(16), 0x0000ff, 0xff, INK_NONE, false);
+        RSDK.DrawRect(self->closestTilePos.x - TO_FIXED(2), self->closestTilePos.y - TO_FIXED(2), TO_FIXED(4), TO_FIXED(4), 0xff00ff, 0xff, INK_NONE, false);
     }
 }
 
@@ -3790,7 +3803,9 @@ void Player_HandleGroundAnimation(void)
                     self->skidding -= 8;
                 }
 
-                RSDK.PlaySfx(Player->sfxSkidding, false, 255);
+                if (!RSDK.IsSfxPlaying(Player->sfxSkidding)) {
+                    Soundboard_PlaySfxAttenuated((Entity *)self, Player->sfxSkidding, 1.0);
+                }
                 EntityDust *dust = CREATE_ENTITY(Dust, self, self->position.x, self->position.y);
                 dust->state      = Dust_State_DustTrail;
             }
@@ -4175,7 +4190,7 @@ void Player_Action_Jump(EntityPlayer *entity)
     entity->applyJumpCap     = true;
     entity->jumpAbilityState = 1;
 
-    RSDK.PlaySfx(Player->sfxJump, false, 255);
+    Soundboard_PlaySfxAttenuated((Entity *)entity, Player->sfxJump, 0.3);
     entity->state = Player_State_Air;
 }
 void Player_Action_Roll(void)
@@ -5921,7 +5936,7 @@ void Player_State_KnuxWallClimb(void)
             self->applyJumpCap     = false;
             self->jumpAbilityState = 1;
 
-            RSDK.PlaySfx(Player->sfxJump, false, 255);
+            Soundboard_PlaySfxAttenuated((Entity *)self, Player->sfxJump, 0.3);
             if (self->direction == FLIP_X) {
                 self->velocity.x = 0x40000;
                 self->groundVel  = 0x40000;
